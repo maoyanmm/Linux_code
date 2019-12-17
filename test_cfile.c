@@ -2,6 +2,7 @@
 #include<string.h>
 int main()
 {
+    //
     while(1)
     {
 
