@@ -1,4 +1,5 @@
 #include"cloud_backup.hpp"
+#include<thread>
 
 void test_compress(char* argv[])
 {
@@ -33,9 +34,30 @@ void test_storage()
     }
 
 }
+void test_hotcompress_start()
+{
+    _cloud_sys::NotHotCompress nc(COMMON_FILE_DIR,GZ_FILE_DIR);
+    nc.Start();
+    return;
+}
+
+void test_hotcompress()
+{
+    if(boost::filesystem::exists(GZ_FILE_DIR) == false)
+    {
+        boost::filesystem::create_directory(GZ_FILE_DIR);
+    }
+    if(boost::filesystem::exists(COMMON_FILE_DIR) == false)
+    {
+        boost::filesystem::create_directory(COMMON_FILE_DIR);
+    }
+    _cloud_sys::dm.Insert("abcd.txt","abcd.txt");
+    std::thread thr(test_hotcompress_start);
+    thr.join();
+}
 
 int main(int argc, char* argv[])
 {
-    test_storage();
+    test_hotcompress();
     return 0;
 }

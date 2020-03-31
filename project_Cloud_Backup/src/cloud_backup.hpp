@@ -1,4 +1,6 @@
 #include<cstdio>
+#include<sys/stat.h>
+#include<unistd.h>
 #include<iostream>
 #include<string>
 #include<vector>
@@ -10,8 +12,15 @@
 #include<boost/algorithm/string.hpp>
 #include"httplib.h"
 
+#define NOT_HOT_TIME 15 //最后一次访问距现在的时间
+#define CHECK_INTVAL_TIME 30 //检查的间隔的时间
+#define COMMON_FILE_DIR "./common/" //未压缩的文件存放的目录
+#define GZ_FILE_DIR "./gz/" //压缩的文件存放的目录
+#define FILE_NAME_DIR "./fileName" //所有文件名存放的目录
+
 namespace _cloud_sys
 {
+
     //文件的工具类（读，写）
     class FileUtil
     {
@@ -183,6 +192,7 @@ namespace _cloud_sys
                 pthread_rwlock_wrlock(&_rwlock);
                 _file_list[src] = dst;
                 pthread_rwlock_unlock(&_rwlock);
+                Storage();//存到磁盘里
                 return true;
             }
             //获取所有文件（向客户展示文件列表，所以不展示压缩后的文件）
@@ -235,6 +245,7 @@ namespace _cloud_sys
                     std::string key = e.substr(0,pos);
                     std::string value = e.substr(pos+1);
                     //分割完key和value后插入到_file_list
+                    //Insert里已经自带了写锁
                     Insert(key,value);
                 }
                 return true;
@@ -246,5 +257,65 @@ namespace _cloud_sys
             std::unordered_map<std::string,std::string> _file_list;
             //读写锁
             pthread_rwlock_t _rwlock;
+    };
+    
+    _cloud_sys::DataManager dm(FILE_NAME_DIR); 
+
+    class NotHotCompress
+    {
+        public:
+            NotHotCompress(const std::string& co_dir,const std::string& gz_dir)
+                :_gz_dir(gz_dir)
+                 ,_co_dir(co_dir)
+            {  }
+            bool Start()
+            {
+                while(1)
+                {
+                    //获取未压缩的文件列表
+                    std::vector<std::string> list;
+                    dm.GetUnCompressList(&list);
+                    for(const auto& e:list)
+                    {
+                        std::string src_name = _co_dir + e;
+                        //循环判断这些未压缩的文件是否是非热点文件
+                        if(IsHot(src_name) == false)
+                        {
+                            //如果是非热点文件则压缩
+                            std::string dst_name = _gz_dir + e + ".gz";
+                            if(CompressUtil::Compress(src_name,dst_name) == true)
+                            {
+                                //压缩完就更新文件名List的键值对
+                                dm.Insert(e,e+".gz");
+                                //压缩完，原文件就没用了，删除掉，但是_file_list里的文件名并不删除
+                                unlink(src_name.c_str());
+                            }
+                        }       
+                    }
+                    //每过一定的时间就检查一次
+                    sleep(CHECK_INTVAL_TIME);
+                }
+            }
+        private:
+            bool IsHot(const std::string& name)
+            {
+                //获取当前时间
+                time_t cur_time = time(NULL);
+                //获取最后一次修改时间的结构体
+                struct stat st;
+                if(stat(name.c_str(),&st) < 0)
+                {
+                    printf("get file %s stat failed!\n",name.c_str());
+                    return false;
+                }
+                if((cur_time - st.st_atime) > NOT_HOT_TIME)
+                {
+                    return false;
+                }
+                return true;
+            }
+        private:
+            std::string _gz_dir;//压缩后的文件存储路径
+            std::string _co_dir;//压缩前的文件存储路径 
     };
 }
