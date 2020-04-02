@@ -38,7 +38,7 @@ namespace _cloud_sys
                 int64_t fsize = boost::filesystem::file_size(name);
                 //将要接受的容器扩容
                 body->resize(fsize);
-                ifs.read(&(*body)[0],fsize);
+                ifs.read(&((*body)[0]),fsize);
                 //判断上次操作是否成功
                 if(ifs.good() == false)
                 {
@@ -53,7 +53,8 @@ namespace _cloud_sys
                 std::ofstream ofs(name,std::ios::binary);
                 if(ofs.is_open() == false)
                 {
-                    printf("file %s open failed!\n",name.c_str());
+                    printf("99999999999999999999999999\n");
+                    printf("Write : file %s open failed!\n",name.c_str());
                     return false;
                 }
                 ofs.write(&body[0],body.size());
@@ -104,6 +105,7 @@ namespace _cloud_sys
                 std::ofstream ofs(dst,std::ios::binary);
                 if(ofs.is_open() == false)
                 {
+                    printf("33333333333333333\n");
                     printf("file %s open failed!\n",dst.c_str());
                     return false;
                 }
@@ -111,7 +113,7 @@ namespace _cloud_sys
                 gzFile gf = gzopen(src.c_str(),"rb");
                 if(gf == NULL)
                 {
-                    printf("file %s open failed!\n",src.c_str());
+                    printf("file %s gzopen failed!\n",src.c_str());
                     //如果这个gz文件打开失败，但是之前的ofstream文件已经打开，要关掉
                     ofs.close();
                     return false;
@@ -148,28 +150,34 @@ namespace _cloud_sys
                 auto it = _file_list.find(name);
                 if(it == _file_list.end())
                 {
+                    pthread_rwlock_unlock(&_rwlock);
                     return false;
                 }
-                return true;
                 pthread_rwlock_unlock(&_rwlock);
+                return true;
             }
             //检查文件是否已压缩
             bool IsCompress(const std::string& name)
             {
                 pthread_rwlock_rdlock(&_rwlock);
-                if(!Exist(name))
+                auto it = _file_list.find(name);
+                if(it == _file_list.end())
                 {
+                    pthread_rwlock_unlock(&_rwlock);
                     return false;
                 }
-                auto it = _file_list.find(name);
                 //如果文件未压缩，那么这个键值对的两个字符串都是那个文件的文件名
                 //如果压缩了，那么键值对的第一个是原文件名，第二个是压缩后的文件名
                 if(it->first != it->second)
                 {
+                    pthread_rwlock_unlock(&_rwlock);
+                    return true;
+                }
+                else
+                {
+                    pthread_rwlock_unlock(&_rwlock);
                     return false;
                 }
-                pthread_rwlock_unlock(&_rwlock);
-                return true;
             }
             //获取未压缩的文件列表
             bool GetUnCompressList(std::vector<std::string>* list)
@@ -192,6 +200,11 @@ namespace _cloud_sys
                 pthread_rwlock_wrlock(&_rwlock);
                 _file_list[src] = dst;
                 pthread_rwlock_unlock(&_rwlock);
+                printf("Insert\n");
+                for(auto it = _file_list.begin(); it != _file_list.end(); ++it)
+                {
+                    std::cout << it->first << "-->" << it->second << std::endl;
+                }
                 Storage();//存到磁盘里
                 return true;
             }
@@ -206,6 +219,18 @@ namespace _cloud_sys
                 pthread_rwlock_unlock(&_rwlock);
                 return true;
             }
+            //获取压缩包名称
+            bool GetGzName(const std::string& src, std::string* dst)
+            {
+               auto it = _file_list.find(src);
+               if(it == _file_list.end())
+               {
+                   printf("GetGzName failed!\n");
+                   return false;
+               }
+               *dst = it->second;
+               return true;
+            }
             //将接收到的文件名存在磁盘里
             bool Storage()
             {
@@ -219,6 +244,12 @@ namespace _cloud_sys
                 //将所有文件名（包括对应的压缩包名）写到磁盘的文件里
                 FileUtil::Write(_back_filename,tmp.str());                
                 pthread_rwlock_unlock(&_rwlock);
+                
+                printf("Storage\n");
+                for(auto it = _file_list.begin(); it != _file_list.end(); ++it)
+                {
+                    std::cout << it->first << "-->" << it->second << std::endl;
+                }
                 return true;
             }
             //将磁盘的文件加载
@@ -275,20 +306,20 @@ namespace _cloud_sys
                     //获取未压缩的文件列表
                     std::vector<std::string> list;
                     dm.GetUnCompressList(&list);
-                    for(const auto& e:list)
+                    for(const auto& file_name:list)
                     {
-                        std::string src_name = _co_dir + e;
+                        std::string path_file_name = _co_dir + file_name;
                         //循环判断这些未压缩的文件是否是非热点文件
-                        if(IsHot(src_name) == false)
+                        if(IsHot(path_file_name) == false)
                         {
                             //如果是非热点文件则压缩
-                            std::string dst_name = _gz_dir + e + ".gz";
-                            if(CompressUtil::Compress(src_name,dst_name) == true)
+                            std::string dst_name = _gz_dir + file_name + ".gz";
+                            if(CompressUtil::Compress(path_file_name,dst_name) == true)
                             {
                                 //压缩完就更新文件名List的键值对
-                                dm.Insert(e,e+".gz");
+                                dm.Insert(file_name,file_name+".gz");
                                 //压缩完，原文件就没用了，删除掉，但是_file_list里的文件名并不删除
-                                unlink(src_name.c_str());
+                                unlink(path_file_name.c_str());
                             }
                         }       
                     }
@@ -317,5 +348,85 @@ namespace _cloud_sys
         private:
             std::string _gz_dir;//压缩后的文件存储路径
             std::string _co_dir;//压缩前的文件存储路径 
+    };
+    class Server
+    {
+        public:
+            bool Start()
+            {
+                _server.Put("/(.*)",Upload);
+                _server.Get("/list",List);
+                //.*表示匹配任意字符串，()表示捕捉这个字符串
+                _server.Get("/download/(.*)",Download);
+                _server.listen("0.0.0.0",4418);
+                return true;
+            }
+        private:
+            static void Upload(const httplib::Request& req, httplib::Response& rsp)
+            {
+                std::string file_name = req.matches[1];
+                std::string path_file_name = COMMON_FILE_DIR + file_name;
+                FileUtil::Write(path_file_name,req.body);
+                dm.Insert(file_name,file_name);
+                rsp.status = 200;
+                return ;
+            }
+            static void List(const httplib::Request& req, httplib::Response& rsp)
+            {
+                //获取所有文件的列表
+                std::vector<std::string> list;
+                dm.GetAllFile(&list);
+                std::stringstream tmp;
+                tmp << "<html><body><hr />";
+                for(size_t i = 0; i < list.size(); ++i)
+                {
+                    //href后跟的是超链接,第一个list是超链接里路径下的文件,第二个是展示的字符串
+                    //点击list后，会给服务器发送/Download/list[i]请求
+                    tmp << "<a href='/download/" << list[i] << "'>" << list[i] << "</a>";
+                    tmp << "<hr />";
+                }
+                tmp << "<hr /></body></html>"; 
+                //将这个tmp字符串传入正文
+                rsp.set_content(tmp.str().c_str(),tmp.str().size(),"text/html");
+                rsp.status = 200;
+                return;
+            }
+            static void Download(const httplib::Request& req, httplib::Response& rsp)
+            {
+                std::string file_name = req.matches[1];//matches是捕捉(.*)
+                //先查看文件是否存在
+                printf("55555555555555555555\n");
+                if(dm.Exist(file_name) == false)
+                {
+                    rsp.status = 404;
+                    return;
+                }
+                printf("66666666666666666666666666\n");
+                std::string path_file_name = COMMON_FILE_DIR + file_name; 
+                //再检查文件是否在磁盘已经被压缩
+                //如果被压缩，则解压缩
+                if(dm.IsCompress(file_name) == true)
+                {
+                    printf("7777777777777777777777\n");
+                    std::string gzfile;
+                    dm.GetGzName(file_name,&gzfile);
+                    std::string path_gzfile_name = GZ_FILE_DIR + gzfile; 
+                    CompressUtil::UnCompress(path_gzfile_name,path_file_name);
+                    //解压后删除压缩包
+                    unlink(path_gzfile_name.c_str());
+                    //解压缩后更新文件列表
+                    dm.Insert(file_name,file_name);
+                }
+                printf("333333333333333333333\n");
+                //把原文件的数据传入rsp的正文
+                FileUtil::Read(path_file_name,&rsp.body);
+                rsp.set_header("content-type","application/octet-stream");//二进制流下载
+                rsp.status = 200;
+                printf("xxxxxxxxxxxxxxxxxxxxxxxxxx\n");
+                return;
+            }
+        private:
+            std::string _file_dir;
+            httplib::Server _server;
     };
 }

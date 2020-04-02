@@ -56,8 +56,22 @@ void test_hotcompress()
     thr.join();
 }
 
+void test_server_start()
+{
+    _cloud_sys::Server server;
+    server.Start();
+    return;
+}
+void test_server()
+{
+    std::thread thr_compress(test_hotcompress_start);
+    std::thread thr_server(test_server_start);
+    thr_compress.join();
+    thr_server.join();
+}
+
 int main(int argc, char* argv[])
 {
-    test_hotcompress();
+    test_server();
     return 0;
 }
