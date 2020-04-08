@@ -3,21 +3,15 @@
 using namespace std;
 int main()
 {
-    MYSQL* mysql = MysqlInit();
-    if(mysql == NULL)
-    {
-        return -1;
-    }
-    FileNameManager fnm(mysql);
-    fnm.Insert("test1.txt");
-    fnm.Insert("test2.txt");
-    fnm.Update("test2.txt",1);
-    cout << "fnm.IsExist(test1.txt) = " <<  fnm.IsExist("test1.txt") << endl;
-    cout << "fnm.IsExist(test2.txt) = " <<  fnm.IsExist("test2.txt") << endl;
-    cout << "fnm.IsCompress(test1.txt) = " << fnm.IsCompress("test1.txt") << endl;
-    cout << "fnm.IsCompress(test2.txt) = " << fnm.IsCompress("test2.txt") << endl << endl;
+    FileNameManager::GetFNM()->Insert("test1.txt");
+    FileNameManager::GetFNM()->Insert("test2.txt");
+    FileNameManager::GetFNM()->Update("test2.txt",1);
+    cout << "fnm.IsExist(test1.txt) = " <<  FileNameManager::GetFNM()->IsExist("test1.txt") << endl;
+    cout << "fnm.IsExist(test2.txt) = " <<  FileNameManager::GetFNM()->IsExist("test2.txt") << endl;
+    cout << "fnm.IsCompress(test1.txt) = " << FileNameManager::GetFNM()->IsCompress("test1.txt") << endl;
+    cout << "fnm.IsCompress(test2.txt) = " << FileNameManager::GetFNM()->IsCompress("test2.txt") << endl << endl;
     vector<string> list; 
-    fnm.GetAllFile(&list);
+    FileNameManager::GetFNM()->GetAllFile(&list);
     cout << "fnm.GetAllFile()" << endl;
     for(const auto& file:list)
     {
@@ -25,14 +19,11 @@ int main()
     }
 
     vector<string> list2; 
-    fnm.GetUnCompressList(&list2);
+    FileNameManager::GetFNM()->GetUnCompressList(&list2);
     cout << "fnm.GetUnCompressList()" << endl;
     for(const auto& file:list2)
     {
         cout << file << endl;
     }
-
-
-    MysqlDestroy(mysql);
     return 0;
 }
