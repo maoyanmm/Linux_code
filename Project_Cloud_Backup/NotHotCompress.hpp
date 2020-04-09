@@ -2,6 +2,7 @@
 #include"FileNameManager.hpp"
 #include"FileTool.hpp"
 #include<time.h>
+#include<pthread.h>
 
 #define COMMON_FILE_DIR "./common_file/"//原文件存放的文件夹
 #define GZ_FILE_DIR "./gz_file/"//压缩文件存放的文件夹
