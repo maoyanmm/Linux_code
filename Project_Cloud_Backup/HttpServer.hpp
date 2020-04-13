@@ -32,12 +32,34 @@ class Server
             //1、拿到带路径的文件名
             std::string file_name = request.matches[1];
             std::string path_file_name = COMMON_FILE_DIR + file_name;
-            //2、把上传的文件数据写到磁盘里
+            printf("file[%s] is upload ... ...\n",file_name.c_str());
+            //2、更新数据库里的文件信息
+            //如果文件不存在则插入文件信息
+            if(FileNameManager::GetFNM()->IsExist(file_name) == false)
+            {
+                FileNameManager::GetFNM()->Insert(file_name);
+            }
+            //如果文件存在，将之前的文件删除，然后传入新的文件，更新信息
+            else
+            {
+                //如果之前的文件被压缩了，则删除压缩包
+                if(FileNameManager::GetFNM()->IsCompress(file_name) == true)
+                {
+                    std::string path_gzfile_name = GZ_FILE_DIR + file_name + ".gz";
+                    unlink(path_gzfile_name.c_str());
+                }
+                //如果之前的文件还没被压缩，则删除原文件
+                else
+                {
+                    unlink(path_file_name.c_str());
+                }
+                FileNameManager::GetFNM()->Update(file_name,0);
+            }
+            //3、将文件数据写入到磁盘里
             FileTool::FileReadWriteTool::FileWrite(path_file_name,request.body);
-            //3、更新数据库里的文件信息--------------------------------------------不知是否要更新
-            FileNameManager::GetFNM()->Insert(file_name);
             //4、设置状态码
             response.status = 200;
+            printf("file[%s] upload success!\n",file_name.c_str());
         }
         static void List(const httplib::Request& request, httplib::Response& response)
         {
