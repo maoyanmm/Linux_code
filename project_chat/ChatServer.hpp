@@ -9,6 +9,7 @@
 
 #include"MsgPool.hpp"
 #include"LogSvr.hpp"
+#include"Message.hpp"
 #include"ConnectInfo.hpp"
 #include"UserManager.hpp"
 
@@ -122,6 +123,7 @@ class ChatServer
     //创建：生产者、消费者、登陆\注册 的线程
     void Start()
     {
+        //创建生产者消费者线程
         for(int i = 0; i < THREAD_COUNT; ++i)
         {
             pthread_t tid;
@@ -139,8 +141,10 @@ class ChatServer
             }
         }
         LOG(INFO,"Udp ChatServer start success!");
+        //创建登陆/注册线程
         while(1)
         {
+            //1、接受一个客户的tcp
             struct sockaddr_in cli_addr;
             socklen_t cli_len = sizeof(cli_addr);
             int new_sock = accept(_tcp_sock,(struct sockaddr*)&cli_addr,&cli_len);
@@ -149,14 +153,14 @@ class ChatServer
                 LOG(ERROR,"Accept new connect failed!");
                 continue;
             }
-            //一个new_sock新的连接处理一个登陆/注册的请求
+            //2、一个new_sock新的连接处理一个登陆/注册的请求
             LoginConnect* lc = new LoginConnect(new_sock,(void*)this);
             if(lc == NULL)
             {
                 LOG(ERROR,"Create LonginConnect failed!");
                 continue;
             }
-            //每接待到一个客户，就创建一个线程去处理登陆/注册
+            //3、每接待到一个客户，就创建一个线程去处理登陆/注册
             pthread_t tid;
             int ret = pthread_create(&tid,NULL,LoginRegistStart,(void*)lc);
             if(ret < 0)
@@ -190,12 +194,12 @@ private:
             return NULL;
         }
         //解析客户的请求：注册、登陆、下线
-        int user_id;
+        uint64_t user_id = -1;
         int user_status = -1;
         switch(request)
         {
             case LOGIN:
-                user_status = cs->DealLogin();
+                user_status = cs->DealLogin(lc->GetTcpSock());
                 break;
             case REGISTER:
                 user_status = cs->DealRegister(lc->GetTcpSock(),&user_id);
@@ -207,26 +211,60 @@ private:
                 LOG(ERROR,"Received a not effective request!");
                 break;
         }
+        ReplyInfo ri;
+        ri._status = user_status;
+        ri._user_id = user_id;
+        ssize_t send_size = send(lc->GetTcpSock(), &ri, sizeof(ri), 0);
+        if(send_size < 0)
+        {
+            LOG(ERROR,"Send ReplyInfo failed!");
+        }
+        LOG(INFO,"Send ReplyInfo success!");
+
+        close(lc->GetTcpSock());
+        delete lc;
         return NULL;
     }
-    int DealRegister(int sock,int* user_id)
+
+    int DealRegister(int sock,uint64_t* user_id)
     {
         RegestInfo ri;
         ssize_t recv_size = recv(sock,&ri,sizeof(ri),0);
         if(recv_size < 0)
         {
             LOG(ERROR,"Recv RegestInfo failed!");
-            return ONLINE; 
+            return OFFLINE; 
         }
         else if(recv_size == 0)
         {
             LOG(ERROR,"Client shutdown connect");
         }
-        _user_manager->Register(); 
+        int ret = _user_manager->Register(ri._nick_name,ri._school,ri._password,user_id); 
+        if(ret == -1)
+        {
+            return REGIST_FAILED;
+        }
+        return REGIST_SUCCESS;
     }
-    int DealLogin()
+    int DealLogin(int sock)
     {
-
+        LoginInfo li;
+        ssize_t recv_size = recv(sock,&li,sizeof(li),0);
+        if(recv_size < 0)
+        {
+            LOG(ERROR,"Recv LoginInfo failed!");
+            return OFFLINE; 
+        }
+        else if(recv_size == 0)
+        {
+            LOG(ERROR,"Client shutdown connect");
+        }
+        int ret = _user_manager->Login(li._user_id,li._password);
+        if(ret == -1)
+        {
+            return LOGIN_FAILED;
+        }
+        return LOGIN_SUCCESS;
     }
     int DealLoginOut()
     {
@@ -269,11 +307,20 @@ private:
         }
         else
         {
-            //正常逻辑
             std::string msg;
             msg.assign(buf,recv_size);
             LOG(INFO,msg);
-            _msg_pool->PushMsgToPool(msg);
+            Message json_msg;
+            json_msg.Deserialize(msg);
+            
+            //不是所有的消息都接收到消息池，可以接受的消息：
+            //1、新用户发送了注册请求
+            //2、老用户发送了登陆请求、发送的消息
+            bool ret = _user_manager->IsLogin(json_msg.GetUserId(),cli_addr,cli_len);
+            if(ret == true)
+            {
+                _msg_pool->PushMsgToPool(msg);
+            }
         }
     }
     void BroadcastMsg()

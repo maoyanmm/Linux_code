@@ -40,12 +40,13 @@ class LogTime
 };
 
 //一定要inline：否则函数的参数file和line的默认__FILE__和__LINE__都是返回的这个hpp里的文件和行号
-inline void Log(LogLevel level,const std::string& log_msg,const char* file,int line)
+inline std::ostream& Log(LogLevel level,const std::string& log_msg,const char* file,int line)
 {
     std::string level_info = Level[level];
     std::string time_now;
     LogTime::GetTime(&time_now);
-    std::cout << "[" << time_now << " " << level_info << " " << file << ":" << line << "]" << log_msg << std::endl; 
+    std::cout << "[" << time_now << " " << level_info << " " << file << ":" << line << "]" << log_msg;
+    return std::cout;
 }
 
 #define LOG(level,msg) Log(level,msg,__FILE__,__LINE__)

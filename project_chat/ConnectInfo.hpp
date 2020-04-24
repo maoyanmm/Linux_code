@@ -6,6 +6,14 @@
 #define LOGIN 2
 #define LOGINOUT 3
 
+enum UserStatus
+{
+    REGIST_FAILED = 0,//注册失败
+    REGIST_SUCCESS,//注册成功
+    LOGIN_FAILED,//注册失败
+    LOGIN_SUCCESS//注册成功
+};
+
 //注册信息
 struct RegestInfo
 {
@@ -17,6 +25,7 @@ struct RegestInfo
 struct ReplyInfo
 {
     //当前注册状态
+    //OFFLINE/REGISTERED/LOGINED/ONLINE
     int _status;
     uint64_t _user_id;
 };
@@ -26,6 +35,7 @@ struct LoginInfo
     uint64_t _user_id;
     char _password[20];
 };
+//这个类就是封装了new_sock和ChatServer类，为了方便用到这两个变量
 class LoginConnect
 {
     private:
