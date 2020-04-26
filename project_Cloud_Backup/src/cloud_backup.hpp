@@ -53,7 +53,6 @@ namespace _cloud_sys
                 std::ofstream ofs(name,std::ios::binary);
                 if(ofs.is_open() == false)
                 {
-                    printf("99999999999999999999999999\n");
                     printf("Write : file %s open failed!\n",name.c_str());
                     return false;
                 }
@@ -105,7 +104,6 @@ namespace _cloud_sys
                 std::ofstream ofs(dst,std::ios::binary);
                 if(ofs.is_open() == false)
                 {
-                    printf("33333333333333333\n");
                     printf("file %s open failed!\n",dst.c_str());
                     return false;
                 }
@@ -118,7 +116,7 @@ namespace _cloud_sys
                     ofs.close();
                     return false;
                 }
-                int ret = 0;
+                size_t ret = 0;
                 char buf[4096] = {0};
                 //每次读取一定量的数据
                 while((ret = gzread(gf,buf,sizeof(buf))) > 0)
@@ -133,11 +131,19 @@ namespace _cloud_sys
     };
     class DataManager
     {
-        public:
+        private:
             DataManager(const std::string& path)
                 :_back_filename(path)
             {
                 pthread_rwlock_init(&_rwlock,NULL);
+                InitLoad();
+            }
+            DataManager(const DataManager& dm);
+            DataManager& operator=(const DataManager& dm);
+        public:
+            static DataManager* GetDM()
+            {
+                return &_dm;
             }
             ~DataManager()
             {
@@ -273,11 +279,10 @@ namespace _cloud_sys
                     {
                         continue;
                     }
-                    std::string key = e.substr(0,pos);
-                    std::string value = e.substr(pos+1);
+                    std::string file_name = e.substr(0,pos);
+                    std::string file_etag = e.substr(pos+1);
                     //分割完key和value后插入到_file_list
-                    //Insert里已经自带了写锁
-                    Insert(key,value);
+                    _file_list[file_name] = file_etag;
                 }
                 return true;
             }
@@ -288,10 +293,10 @@ namespace _cloud_sys
             std::unordered_map<std::string,std::string> _file_list;
             //读写锁
             pthread_rwlock_t _rwlock;
+            static DataManager _dm;
     };
+    DataManager DataManager::_dm(FILE_NAME_DIR);
     
-    _cloud_sys::DataManager dm(FILE_NAME_DIR); 
-
     class NotHotCompress
     {
         public:
@@ -305,7 +310,7 @@ namespace _cloud_sys
                 {
                     //获取未压缩的文件列表
                     std::vector<std::string> list;
-                    dm.GetUnCompressList(&list);
+                    DataManager::GetDM()->GetUnCompressList(&list);
                     for(const auto& file_name:list)
                     {
                         std::string path_file_name = _co_dir + file_name;
@@ -317,7 +322,7 @@ namespace _cloud_sys
                             if(CompressUtil::Compress(path_file_name,dst_name) == true)
                             {
                                 //压缩完就更新文件名List的键值对
-                                dm.Insert(file_name,file_name+".gz");
+                                DataManager::GetDM()->Insert(file_name,file_name+".gz");
                                 //压缩完，原文件就没用了，删除掉，但是_file_list里的文件名并不删除
                                 unlink(path_file_name.c_str());
                             }
@@ -367,7 +372,7 @@ namespace _cloud_sys
                 std::string file_name = req.matches[1];
                 std::string path_file_name = COMMON_FILE_DIR + file_name;
                 FileUtil::Write(path_file_name,req.body);
-                dm.Insert(file_name,file_name);
+               
                 rsp.status = 200;
                 return ;
             }
@@ -375,7 +380,7 @@ namespace _cloud_sys
             {
                 //获取所有文件的列表
                 std::vector<std::string> list;
-                dm.GetAllFile(&list);
+                DataManager::GetDM()->GetAllFile(&list);
                 std::stringstream tmp;
                 tmp << "<html><body><hr />";
                 for(size_t i = 0; i < list.size(); ++i)
@@ -395,34 +400,29 @@ namespace _cloud_sys
             {
                 std::string file_name = req.matches[1];//matches是捕捉(.*)
                 //先查看文件是否存在
-                printf("55555555555555555555\n");
-                if(dm.Exist(file_name) == false)
+                if(DataManager::GetDM()->Exist(file_name) == false)
                 {
                     rsp.status = 404;
                     return;
                 }
-                printf("66666666666666666666666666\n");
                 std::string path_file_name = COMMON_FILE_DIR + file_name; 
                 //再检查文件是否在磁盘已经被压缩
                 //如果被压缩，则解压缩
-                if(dm.IsCompress(file_name) == true)
+                if(DataManager::GetDM()->IsCompress(file_name) == true)
                 {
-                    printf("7777777777777777777777\n");
                     std::string gzfile;
-                    dm.GetGzName(file_name,&gzfile);
+                    DataManager::GetDM()->GetGzName(file_name,&gzfile);
                     std::string path_gzfile_name = GZ_FILE_DIR + gzfile; 
                     CompressUtil::UnCompress(path_gzfile_name,path_file_name);
                     //解压后删除压缩包
                     unlink(path_gzfile_name.c_str());
                     //解压缩后更新文件列表
-                    dm.Insert(file_name,file_name);
+                    DataManager::GetDM()->Insert(file_name,file_name);
                 }
-                printf("333333333333333333333\n");
                 //把原文件的数据传入rsp的正文
                 FileUtil::Read(path_file_name,&rsp.body);
                 rsp.set_header("content-type","application/octet-stream");//二进制流下载
                 rsp.status = 200;
-                printf("xxxxxxxxxxxxxxxxxxxxxxxxxx\n");
                 return;
             }
         private:

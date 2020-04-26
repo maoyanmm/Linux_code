@@ -18,7 +18,7 @@ class Server
         void Start()
         {
             //上传文件
-            _server.Put("/(.*)",Upload);
+             _server.Put("/(.*)",Upload);
             //请求文件列表
             _server.Get("/list",List);
             //下载文件

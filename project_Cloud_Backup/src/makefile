@@ -1,3 +1,6 @@
-.PHONY:cloud_backup
+all:cloud_backup testout
 cloud_backup:cloud_backup.cpp
 	g++ -std=c++11 $^ -o $@ -lz -lpthread -lboost_filesystem -lboost_system
+testout:test.cpp
+	g++ -std=c++11 $^ -o $@ -lz -lpthread -lboost_filesystem -lboost_system
+
