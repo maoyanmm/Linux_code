@@ -8,6 +8,7 @@
 #include<unistd.h>
 
 #include"LogSvr.hpp"
+#include"ConnectInfo.hpp"
 
 #define UDP_PORT 4418
 #define TCP_PORT 4419
@@ -39,7 +40,7 @@ class ChatClient
                 close(_udp_sock);
             }
         }
-        void Init()
+        void InitUDP()
         {
             _udp_sock = socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
             if(_udp_sock < 0)
@@ -47,22 +48,163 @@ class ChatClient
                 LOG(FATAL,"Init _udp_sock failed!") << std::endl;
                 exit(1);
             }
+        }
+        void InitTCP()
+        {
             _tcp_sock = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
             if(_tcp_sock < 0)
             {
                 LOG(FATAL,"Init _tcp_sock failed!") << std::endl;
                 exit(2);
             }
-            if(ConnectServer() == false)
-            {
-                exit(3);
-            }
-
         }
-        bool Login();
-        bool Register();
-        bool SendMsg();
-        bool ReceiveMsg();
+        bool Login()
+        {
+            //连接服务端的TCP
+            InitTCP();
+            if(!ConnectServer())
+            {
+                LOG(FATAL,"ConnectServer failed!") << std::endl;
+                return false;
+            }
+            //1、先发送登陆请求
+            char type = LOGIN;
+            ssize_t send_size = send(_tcp_sock,&type,1,0);
+            if(send_size < 0)
+            {
+                LOG(ERROR,"Send Login type failed!") << std::endl;
+                return false;
+            }
+            //2、输入账号和密码
+            struct LoginInfo li;
+            std::cout << "Please enter your UserId：" << std::endl;
+            std::cin >> li._user_id;
+            std::cout << "Please enter your Password：" << std::endl;
+            std::cin >> li._password;
+            send(_tcp_sock,&li,sizeof(li),0);
+            //3、查看是否登陆成功
+            struct ReplyInfo response;
+            ssize_t recv_size = recv(_tcp_sock,&response,sizeof(response),0);
+            if(recv_size < 0)
+            {
+                LOG(ERROR,"Receive Login reply failed!") << std::endl;
+                return false;
+            }
+            else if(recv_size == 0)
+            {
+                LOG(ERROR,"Server shutdown!") << std::endl;
+                return false;
+            }
+            if(response._status == LOGIN_FAILED)
+            {
+                LOG(ERROR,"Login failed!") << std::endl;
+                return false;
+            }
+            LOG(ERROR,"Login success!") << std::endl;
+            //关闭和服务端的TCP连接
+            close(_tcp_sock);
+            return true;
+        }
+        bool Register()
+        {
+            //连接服务端的TCP
+            InitTCP();
+            if(!ConnectServer())
+            {
+                LOG(FATAL,"ConnectServer failed!") << std::endl;
+                return false;
+            }
+            //1、发送注册请求
+            char type = REGISTER;
+            ssize_t send_size = send(_tcp_sock,&type,1,0); 
+            if(send_size < 0)
+            {
+                LOG(ERROR,"Send Register type failed!") << std::endl;
+                return false;
+            }
+            //2、发送注册信息
+            struct RegestInfo ri;
+            std::cout << "Please enter your NickName：" << std::endl;
+            std::cin >> ri._nick_name;
+            std::cout << "Please enter your School：" << std::endl;
+            std::cin >> ri._school;
+            //只有两次密码输入的正确才行
+            while(1)
+            {
+                std::string password1;
+                std::string password2;
+                std::cout << "Please enter your Password：" << std::endl;
+                std::cin >> password1;
+                std::cout << "Please enter your Password again：" << std::endl;
+                std::cin >> password2;
+                if(password1 == password2)
+                {
+                    strcpy(ri._password,password1.c_str());
+                    break;
+                }
+                else
+                {
+                    std::cout << "Two password were not match! Please enter again!" << std::endl;
+                }
+            }
+            send_size = send(_tcp_sock,&ri,sizeof(ri),0);
+            if(send_size < 0)
+            {
+                LOG(ERROR,"Send Register infomation failed!") << std::endl;
+                return false;
+            }
+            //3、查看注册情况
+            struct ReplyInfo response;
+            ssize_t recv_size = recv(_tcp_sock,&response,sizeof(response),0);
+            if(recv_size < 0)
+            {
+                LOG(ERROR,"Receive Register reply failed!") << std::endl;
+                return false;
+            }
+            else if(recv_size == 0)
+            {
+                LOG(ERROR,"Server shutdown!") << std::endl;
+                return false;
+            }
+            if(response._status == REGIST_FAILED)
+            {
+                LOG(ERROR,"Register failed!") << std::endl;
+                return false;
+            }
+            LOG(INFO,"Register success! Your new UserId = ：") << response._user_id << std::endl;
+            //关闭和服务端的TCP连接
+            close(_tcp_sock);
+            return true;
+        }
+        bool SendMsg(const std::string& msg)
+        {
+            struct sockaddr_in svr_addr;
+            svr_addr.sin_family = AF_INET;
+            svr_addr.sin_port = htons(_udp_port);
+            svr_addr.sin_addr.s_addr = inet_addr(_svr_ip.c_str());
+            ssize_t send_size = sendto(_udp_sock,msg.c_str(),msg.size(),0,(struct sockaddr*)&svr_addr,sizeof(svr_addr));
+            if(send_size < 0)
+            {
+                LOG(ERROR,"SendMsg failed!") << std::endl;
+                return false;
+            }
+            return true;
+        }
+        bool ReceiveMsg(std::string* msg)
+        {
+            char buf[MAX_MESSAGE_SIZE] = {0};
+            memset(buf,'\0',MAX_MESSAGE_SIZE);
+            struct sockaddr_in svr_addr;
+            socklen_t addr_len;
+            ssize_t recv_size = recvfrom(_udp_sock,buf,MAX_MESSAGE_SIZE-1,0,(struct sockaddr*)&svr_addr,&addr_len);
+            if(recv_size < 0)
+            {
+                LOG(ERROR,"ReceiveMsg failed!") << std::endl;
+                return false;
+            }
+            msg->assign(buf,recv_size);
+            return true;
+        }
     private:
         bool ConnectServer()
         {

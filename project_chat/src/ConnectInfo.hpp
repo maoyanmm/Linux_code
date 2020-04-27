@@ -6,12 +6,15 @@
 #define LOGIN 2
 #define LOGINOUT 3
 
-enum UserStatus
+//约定双发送数据最大是多少
+#define MAX_MESSAGE_SIZE 1024
+
+enum LoginAndRegisterStatus
 {
     REGIST_FAILED = 0,//注册失败
     REGIST_SUCCESS,//注册成功
-    LOGIN_FAILED,//注册失败
-    LOGIN_SUCCESS//注册成功
+    LOGIN_FAILED,//登陆失败
+    LOGIN_SUCCESS//登陆成功
 };
 
 //注册信息

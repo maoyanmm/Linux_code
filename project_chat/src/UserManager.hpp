@@ -11,10 +11,13 @@
 
 #include"LogSvr.hpp"
 
-#define OFFLINE 0
-#define REGISTERED 1
-#define LOGINED 2
-#define ONLINE 3
+enum UserStatus
+{
+    OFFLINE = 0,
+    REGISTERED,
+    LOGINED,
+    ONLINE
+};
 
 //单个用户的信息类
 class UserInfo
@@ -94,10 +97,15 @@ class UserManager
             }
 
             pthread_mutex_lock(&_mtx);
+            //1、根据客户传来的客户信息创建一个用户信息的对象
             UserInfo user_info(nick_name,school,_prepare_user_id,password);
+            //2、更新该用户状态为已注册
             user_info.SetUserStatus(REGISTERED); 
+            //3、将这个用户信息插入到列表里
             _user_map.insert(std::make_pair(_prepare_user_id,user_info));
+            //4、将生成的UserId返还给客户
             *user_id = _prepare_user_id;
+            //5、将预分配的UserId++
             ++_prepare_user_id;
             pthread_mutex_unlock(&_mtx);
 
