@@ -168,7 +168,7 @@ class ChatServer
                 LOG(ERROR,"Create LoginRegistStart thread failed!") << std::endl;
                 continue;
             }
-            LOG(ERROR,"Create LoginRegistStart thread success!") << std::endl;
+            LOG(INFO,"Create LoginRegistStart thread success!") << std::endl;
         }
     }
 private:
@@ -318,12 +318,13 @@ private:
             //1、新用户发送了注册请求
             //2、老用户发送了登陆请求、发送的消息
             bool ret = _user_manager->IsLogin(json_msg.GetUserId(),cli_addr,cli_len);
-            if(ret == true)
+            if(ret == false)
             {
-                LOG(INFO,"PushMsgToPool success!") << std::endl;
-                _msg_pool->PushMsgToPool(msg);
+                LOG(ERROR,"discarded the msg") << std::endl;
+                return;
             }
-            LOG(ERROR,"discarded the msg") << std::endl;
+            LOG(INFO,"PushMsgToPool success!") << std::endl;
+            _msg_pool->PushMsgToPool(msg);
         }
     }
     void BroadcastMsg()
@@ -351,9 +352,8 @@ private:
         }
         else
         {
-            LOG(INFO,"SendMsg success ") << "[" << inet_ntoa(cli_addr.sin_addr) << ":" << ntohs(cli_addr.sin_port) << "]" << msg << std::endl;
+            LOG(INFO,"SendMsg success ") <<  "[" << inet_ntoa(cli_addr.sin_addr) << ":" << ntohs(cli_addr.sin_port) << "]" << std::endl;
         }
 
     }
-
 };

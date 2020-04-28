@@ -6,12 +6,14 @@
 #include<arpa/inet.h>
 #include<sys/types.h>
 #include<unistd.h>
+#include"jsoncpp/json/json.h"
 
 #include"LogSvr.hpp"
 #include"ConnectInfo.hpp"
+#include"UserManager.hpp"
 
-#define UDP_PORT 4418
-#define TCP_PORT 4419
+#define SVR_UDP_PORT 4418
+#define SVR_TCP_PORT 4419
 
 class ChatClient
 {
@@ -24,14 +26,16 @@ class ChatClient
         int _tcp_port;
         //服务端的IP
         std::string _svr_ip;
+        UserInfo _user_info;
     public:
-        ChatClient(std::string svr_ip = "127.0.0.1")
+        ChatClient(std::string svr_ip = "192.168.132.128")
         {
             _udp_sock = -1;
-            _udp_port = UDP_PORT;
+            _udp_port = SVR_UDP_PORT;
             _tcp_sock = -1;
-            _tcp_port = TCP_PORT;
+            _tcp_port = SVR_TCP_PORT;
             _svr_ip = svr_ip;
+            InitUDP();
         }
         ~ChatClient()
         {

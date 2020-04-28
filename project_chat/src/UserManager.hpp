@@ -15,8 +15,8 @@ enum UserStatus
 {
     OFFLINE = 0,
     REGISTERED,
-    LOGINED,
-    ONLINE
+    LOGINED,//表示登陆了还没发消息
+    ONLINE//表示登陆了而且发过消息
 };
 
 //单个用户的信息类
@@ -33,7 +33,7 @@ class UserInfo
         socklen_t _addr_len;
         int _user_status;
     public:
-        UserInfo(const std::string& nick_name,const std::string& school,uint64_t user_id,const std::string& password)
+        UserInfo(const std::string& nick_name = " ",const std::string& school = " ",uint64_t user_id = 0,const std::string& password = " ")
             :_nick_name(nick_name),_school(school),_user_id(user_id),_password(password)
         {
             memset(&_addr,'0',sizeof(_addr));
@@ -160,24 +160,27 @@ class UserManager
                 return false;
             }
             //2、判断当前用户状态
+            //如果是下线的状态则false
             pthread_mutex_lock(&_mtx);
-            if(it->second.GetUserStatus() == OFFLINE || it->second.GetUserStatus() == REGISTERED)
+            if(it->second.GetUserStatus() == OFFLINE)
             {
                 LOG(ERROR,"User status error") << std::endl;
                 pthread_mutex_unlock(&_mtx);
                 return false;
             }
-            //3、判断当前用户状态是否是在线的
+            //如果不是第一次发送消息，就不需要再次把客户的IP和PORT存起来
             if(it->second.GetUserStatus() == ONLINE)
             {
                 pthread_mutex_unlock(&_mtx);
                 return true;
             }
+            //如果是第一次发送消息，则需要把客户的IP和PORT存起来
             if(it->second.GetUserStatus() == LOGINED)
             {
                 it->second.SetCliAddrInfo(cli_addr,addr_len);
                 it->second.SetUserStatus(ONLINE);
                 _online_list.push_back(it->second);
+                std::cout << "在线列表插入了新的客户：" << it->first << std::endl;
             }
             pthread_mutex_unlock(&_mtx);
             return true;
