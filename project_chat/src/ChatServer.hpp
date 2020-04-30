@@ -194,7 +194,7 @@ private:
             return NULL;
         }
         //解析客户的请求：注册、登陆、下线
-        uint64_t user_id = -1;
+        uint32_t user_id = -1;
         int user_status = -1;
         switch(request)
         {
@@ -227,7 +227,7 @@ private:
         return NULL;
     }
 
-    int DealRegister(int sock,uint64_t* user_id)
+    int DealRegister(int sock,uint32_t* user_id)
     {
         RegestInfo ri;
         ssize_t recv_size = recv(sock,&ri,sizeof(ri),0);
@@ -265,6 +265,7 @@ private:
         {
             return LOGIN_FAILED;
         }
+        
         return LOGIN_SUCCESS;
     }
     int DealLoginOut()

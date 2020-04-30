@@ -7,6 +7,7 @@
 #include<sys/types.h>
 #include<unistd.h>
 #include"jsoncpp/json/json.h"
+#include<unordered_set>
 
 #include"LogSvr.hpp"
 #include"ConnectInfo.hpp"
@@ -14,6 +15,13 @@
 
 #define SVR_UDP_PORT 4418
 #define SVR_TCP_PORT 4419
+struct Myself
+{
+    std::string _nick_name;
+    std::string _school;
+    std::string _password;
+    uint32_t _user_id;
+};
 
 class ChatClient
 {
@@ -26,7 +34,8 @@ class ChatClient
         int _tcp_port;
         //服务端的IP
         std::string _svr_ip;
-        UserInfo _user_info;
+        Myself _me;
+        std::unordered_set<std::string> _online_list;
     public:
         ChatClient(std::string svr_ip = "192.168.132.128")
         {
@@ -43,6 +52,10 @@ class ChatClient
             {
                 close(_udp_sock);
             }
+        }
+        Myself& GetMyInfo()
+        {
+            return _me;
         }
         void InitUDP()
         {
@@ -176,6 +189,11 @@ class ChatClient
                 return false;
             }
             LOG(INFO,"Register success! Your new UserId = ：") << response._user_id << std::endl;
+            //保存信息
+            _me._nick_name = ri._nick_name;   
+            _me._school = ri._school;
+            _me._password = ri._password;
+            _me._user_id = response._user_id;
             //关闭和服务端的TCP连接
             close(_tcp_sock);
             return true;
@@ -208,6 +226,18 @@ class ChatClient
             }
             msg->assign(buf,recv_size);
             return true;
+        }
+        void PushOnlineUser(std::string& user_info)
+        {
+            auto it = _online_list.find(user_info);
+            if(it == _online_list.end())
+            {
+                _online_list.insert(user_info);
+            }
+        }
+        std::unordered_set<std::string>& GetOnlineUser()
+        {
+            return _online_list;
         }
     private:
         bool ConnectServer()

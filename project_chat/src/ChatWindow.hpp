@@ -4,9 +4,12 @@
 #include<pthread.h>
 #include<vector>
 #include<stdio.h>
+#include<string>
 #include<ncurses.h>
+#include<sstream>
 
 #include"ChatClient.hpp"
+#include"Message.hpp"
 
 class ChatWindow;
 class Helper
@@ -120,7 +123,130 @@ class ChatWindow
                    printf("Create thread failed!\n");
                    exit(1);
                }
+               _threads.push_back(tid);
            }
+           for(int i = 0; i < 4; ++i)
+           {
+               pthread_join(_threads[i],NULL);
+           }
+       }
+       void RunHeader()
+       {
+           int x,y;
+           size_t pos = 1;
+           std::string welcome = "Welcome to chat chat";
+           int flag = 0;
+           while(1)
+           {
+               DrawHeader();
+               getmaxyx(_header,y,x);
+               PutStringToWindow(_header,y/2,pos,welcome); 
+               //判断welcome要往哪移动
+               if(pos < 2)
+               {
+                   flag = 0;
+               }
+               else if(pos > x-welcome.size()-2)
+               {
+                    flag = 1;
+               }
+               //flag = 0就向右移动
+               if(flag == 0)
+               {
+                   ++pos;
+               }
+               //flag = 1就向左移动
+               else
+               {
+                   --pos;
+               }
+               sleep(1);
+           }
+
+       }
+       void RunInput(ChatClient* cc)
+       {
+           Message msg;
+           msg._nick_name = cc->GetMyInfo()._nick_name;
+           msg._school = cc->GetMyInfo()._school;
+           msg._user_id = cc->GetMyInfo()._user_id;
+           //输入在对话框的信息
+           std::string enter_msg;
+           //最后要发送的数据：包括对话框输入的信息、用户信息
+           std::string send_mgs;
+           std::string tips = "Please Enter:";
+           while(1)
+           {
+               DrawInput();
+               PutStringToWindow(_input,2,2,tips);
+               GetStringFromWindow(_input,&enter_msg);
+               msg._msg = enter_msg;
+               msg.Serialize(&send_mgs);
+               cc->SendMsg(send_mgs);
+           }
+       }
+       void RunUserList(ChatClient* cc)
+       {
+           int y,x;
+           getmaxyx(_user_list,y,x);
+           while(1)
+           {
+               DrawUserList();
+               auto user_list = cc->GetOnlineUser();             
+               int row = 1;
+               for(auto& user:user_list)
+               {
+                   PutStringToWindow(_user_list,row++,1,user);
+               }
+               sleep(1);
+           }
+       }
+       void RunOutPut(ChatClient* cc)
+       {
+           std::string recv_msg;
+           Message msg;
+           DrawOutPut();
+           int row = 1;
+           int x,y;
+           while(1)
+           {
+               getmaxyx(_output,y,x);
+               cc->ReceiveMsg(&recv_msg);
+               msg.Deserialize(recv_msg); 
+               std::string show_msg;
+               show_msg += msg._nick_name + "-" + msg._school + "：" + msg._msg;
+               PutStringToWindow(_output,row,1,show_msg);
+               //收到一个消息，就把这个人的信息放到在线列表里
+               std::string user_info;
+               std::stringstream ss;            
+               ss << msg._user_id;
+               std::string user_id;
+               ss >> user_id;
+               user_info += user_id + "-" + msg._school + "-" +msg._nick_name;
+               cc->PushOnlineUser(user_info);
+               //将消息往下放
+               ++row;
+               if(row > y - 2)
+               {
+                   row = 1;
+                   DrawOutPut();
+               }
+               sleep(1);
+           }
+       }
+       void PutStringToWindow(WINDOW* win,int row,int col,const std::string& msg)
+       {
+            mvwaddstr(win,row,col,msg.c_str());
+            pthread_mutex_lock(&_lock);
+            wrefresh(win);
+            pthread_mutex_unlock(&_lock);
+       }
+       void GetStringFromWindow(WINDOW* win,std::string* data)
+       {
+           char buf[1024] = {0};
+           memset(buf,'\0',sizeof(buf));
+           wgetnstr(win,buf,sizeof(buf)-1);
+           data->assign(buf,strlen(buf));
        }
    private:
        static void* DrawWindowStart(void* arg)
@@ -132,16 +258,16 @@ class ChatWindow
            switch(thread_num)
            {
                case 0:
-                   cw->DrawHeader();
+                   cw->RunHeader();
                    break;
                case 1:
-                   cw->DrawOutPut();
+                   cw->RunOutPut(cc);
                    break;
                case 2:
-                   cw->DrawUserList();
+                   cw->RunUserList(cc);
                    break;
                case 3:
-                   cw->DrawInput();
+                   cw->RunInput(cc);
                    break;
                default:
                    break;

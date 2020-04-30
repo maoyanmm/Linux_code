@@ -26,14 +26,14 @@ class UserInfo
         //基本信息
         std::string _nick_name;
         std::string _school;
-        uint64_t _user_id;
+        uint32_t _user_id;
         std::string _password;
         //网络信息
         struct sockaddr_in _addr;
         socklen_t _addr_len;
         int _user_status;
     public:
-        UserInfo(const std::string& nick_name = " ",const std::string& school = " ",uint64_t user_id = 0,const std::string& password = " ")
+        UserInfo(const std::string& nick_name = " ",const std::string& school = " ",uint32_t user_id = 0,const std::string& password = " ")
             :_nick_name(nick_name),_school(school),_user_id(user_id),_password(password)
         {
             memset(&_addr,'0',sizeof(_addr));
@@ -72,11 +72,11 @@ class UserManager
     private:
         pthread_mutex_t _mtx;
         //保存所有注册了的用户的信息
-        std::unordered_map<uint64_t,UserInfo> _user_map;
+        std::unordered_map<uint32_t,UserInfo> _user_map;
         //保存所有在线的用户的信息
         std::vector<UserInfo> _online_list;
         //预分配的用户id
-        uint64_t _prepare_user_id;
+        uint32_t _prepare_user_id;
     public:
         UserManager()
         {
@@ -89,7 +89,7 @@ class UserManager
         {
             pthread_mutex_destroy(&_mtx);
         }
-        int Register(const std::string& nick_name,const std::string& school,const std::string& password,uint64_t* user_id)
+        int Register(const std::string& nick_name,const std::string& school,const std::string& password,uint32_t* user_id)
         {
             if(nick_name.size() == 0 || school.size() == 0 || password.size() == 0)
             {
@@ -111,7 +111,7 @@ class UserManager
 
             return 0;
         }
-        int Login(const uint64_t& user_id,const std::string& password)
+        int Login(const uint32_t& user_id,const std::string& password)
         {
             if(password.size() < 0)
             {
@@ -146,7 +146,7 @@ class UserManager
             return login_status;
         }
         int LoginOut();
-        bool IsLogin(uint64_t user_id,const struct sockaddr_in& cli_addr,const socklen_t& addr_len)
+        bool IsLogin(uint32_t user_id,const struct sockaddr_in& cli_addr,const socklen_t& addr_len)
         {
             if(sizeof(cli_addr) < 0 || addr_len < 0)
             {

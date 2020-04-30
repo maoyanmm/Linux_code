@@ -30,12 +30,12 @@ struct ReplyInfo
     //当前注册状态
     //OFFLINE/REGISTERED/LOGINED/ONLINE
     int _status;
-    uint64_t _user_id;
+    uint32_t _user_id;
 };
 //登录信息
 struct LoginInfo
 {
-    uint64_t _user_id;
+    uint32_t _user_id;
     char _password[20];
 };
 //这个类就是封装了new_sock和ChatServer类，为了方便用到这两个变量
