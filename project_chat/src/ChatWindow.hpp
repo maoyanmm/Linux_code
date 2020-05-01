@@ -214,7 +214,7 @@ class ChatWindow
                cc->ReceiveMsg(&recv_msg);
                msg.Deserialize(recv_msg); 
                std::string show_msg;
-               show_msg += msg._nick_name + "-" + msg._school + "：" + msg._msg;
+               show_msg += msg._nick_name + "-" + msg._school + " : " + msg._msg;
                PutStringToWindow(_output,row,1,show_msg);
                //收到一个消息，就把这个人的信息放到在线列表里
                std::string user_info;

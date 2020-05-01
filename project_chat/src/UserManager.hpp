@@ -15,7 +15,6 @@ enum UserStatus
 {
     OFFLINE = 0,
     REGISTERED,
-    LOGINED,//表示登陆了还没发消息
     ONLINE//表示登陆了而且发过消息
 };
 
@@ -111,7 +110,7 @@ class UserManager
 
             return 0;
         }
-        int Login(const uint32_t& user_id,const std::string& password)
+        bool Login(const uint32_t& user_id,const std::string& password,const struct sockaddr_in& cli_addr,const socklen_t& addr_len)
         {
             if(password.size() < 0)
             {
@@ -120,12 +119,12 @@ class UserManager
             //1、在map里查找是否存在user_id
             //加锁是因为后面会改变用户状态
             pthread_mutex_lock(&_mtx);
-            int login_status = -1;
+            bool login_status = false;
             auto it = _user_map.find(user_id);
             //如果没找到，则报错
             if(it == _user_map.end())
             {
-                login_status = -1;
+                login_status = false;
             }
             //如果找到了，则验证密码
             else
@@ -133,13 +132,16 @@ class UserManager
                 //如果密码正确
                 if(it->second.GetPassword() == password)
                 {
-                    it->second.GetUserStatus() = LOGINED;
-                    login_status = 0;
+                    it->second.SetCliAddrInfo(cli_addr,addr_len);
+                    it->second.SetUserStatus(ONLINE);
+                    _online_list.push_back(it->second);
+                    std::cout << "------------------udp在线列表插入了新的客户：" << it->first << std::endl;
+                    login_status = true;
                 }
                 //如果密码不正确
                 else
                 {
-                    login_status = -1;
+                    login_status = false;
                 }
             }
             pthread_mutex_unlock(&_mtx);
@@ -173,14 +175,6 @@ class UserManager
             {
                 pthread_mutex_unlock(&_mtx);
                 return true;
-            }
-            //如果是第一次发送消息，则需要把客户的IP和PORT存起来
-            if(it->second.GetUserStatus() == LOGINED)
-            {
-                it->second.SetCliAddrInfo(cli_addr,addr_len);
-                it->second.SetUserStatus(ONLINE);
-                _online_list.push_back(it->second);
-                std::cout << "在线列表插入了新的客户：" << it->first << std::endl;
             }
             pthread_mutex_unlock(&_mtx);
             return true;

@@ -90,6 +90,8 @@ class ChatServer
         tcp_addr.sin_family = AF_INET;
         tcp_addr.sin_port = htons(_tcp_port);
         tcp_addr.sin_addr.s_addr = inet_addr("0.0.0.0");
+        int opt = 1;
+        setsockopt(_tcp_sock,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt));
         ret = bind(_tcp_sock,(struct sockaddr*)&tcp_addr,sizeof(tcp_addr));
         if(ret < 0)
         {
@@ -199,7 +201,7 @@ private:
         switch(request)
         {
             case LOGIN:
-                user_status = cs->DealLogin(lc->GetTcpSock());
+                user_status = cs->DealLogin(cs->_udp_sock);
                 break;
             case REGISTER:
                 user_status = cs->DealRegister(lc->GetTcpSock(),&user_id);
@@ -250,18 +252,17 @@ private:
     int DealLogin(int sock)
     {
         LoginInfo li;
-        ssize_t recv_size = recv(sock,&li,sizeof(li),0);
+        struct sockaddr_in cli_addr;
+        socklen_t cli_len = sizeof(cli_addr);
+        int recv_size = recvfrom(sock,&li,sizeof(li),0,(struct sockaddr*)&cli_addr,&cli_len);
         if(recv_size < 0)
         {
-            LOG(ERROR,"Recv LoginInfo failed!") << std::endl;
-            return OFFLINE; 
+            LOG(ERROR,"recvfrom Loginmsg failed!") << std::endl;
+            return OFFLINE;
         }
-        else if(recv_size == 0)
-        {
-            LOG(ERROR,"Client shutdown connect") << std::endl;
-        }
-        int ret = _user_manager->Login(li._user_id,li._password);
-        if(ret == -1)
+        
+        int ret = _user_manager->Login(li._user_id,li._password,cli_addr,cli_len);
+        if(ret == false)
         {
             return LOGIN_FAILED;
         }
@@ -313,8 +314,7 @@ private:
             msg.assign(buf,recv_size);
             LOG(INFO,msg) << std::endl;
             Message json_msg;
-            json_msg.Deserialize(msg);
-            
+            json_msg.Deserialize(msg);    
             //不是所有的消息都接收到消息池，可以接受的消息：
             //1、新用户发送了注册请求
             //2、老用户发送了登陆请求、发送的消息

@@ -11,6 +11,7 @@
 
 #include"LogSvr.hpp"
 #include"ConnectInfo.hpp"
+#include"Message.hpp"
 #include"UserManager.hpp"
 
 #define SVR_UDP_PORT 4418
@@ -98,7 +99,14 @@ class ChatClient
             std::cin >> li._user_id;
             std::cout << "Please enter your Password：" << std::endl;
             std::cin >> li._password;
-            send(_tcp_sock,&li,sizeof(li),0);
+            Message msg; 
+            msg._msg = " ";
+            msg._nick_name = ;
+            msg._school = _me._school;
+            msg._user_id = _me._user_id;
+            std::string udp_login_msg;
+            msg.Serialize(&udp_login_msg);
+            SendMsg(udp_login_msg);
             //3、查看是否登陆成功
             struct ReplyInfo response;
             ssize_t recv_size = recv(_tcp_sock,&response,sizeof(response),0);
@@ -118,6 +126,7 @@ class ChatClient
                 return false;
             }
             LOG(ERROR,"Login success!") << std::endl;
+            //发送udp的注册信息，因为通讯的时候是通过udp的，所以要告诉服务端自己的udp端口
             //关闭和服务端的TCP连接
             close(_tcp_sock);
             return true;
@@ -189,6 +198,7 @@ class ChatClient
                 return false;
             }
             LOG(INFO,"Register success! Your new UserId = ：") << response._user_id << std::endl;
+              
             //保存信息
             _me._nick_name = ri._nick_name;   
             _me._school = ri._school;
