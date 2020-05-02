@@ -3,7 +3,9 @@
 #include<cstring>
 #include<vector>
 #include<unordered_map>
-#include<unordered_set>
+#include<set>
+#include<utility>
+#include<unistd.h>
 #include<arpa/inet.h>
 
 #include"Log.hpp"
@@ -15,7 +17,7 @@ enum UserStatus
 {
     OFFLINE = 0,//下线
     ONLINE,//上线
-    WILL_BE_ONLINE
+    WILL_BE_ONLINE//即将上线，这个状态是TCP验证密码通过后的状态，客户端即将发送udp数据，然后获取到udp地址才算正式登陆
 };
 
 class UserInfo
@@ -48,7 +50,7 @@ class UserManager
         //所有用户信息列表
         std::unordered_map<uint32_t,UserInfo> _user_info_list;                
         //在线用户列表
-        std::unordered_set<UserInfo> _online_list;
+        std::vector<UserInfo> _online_list;
         //预分配的用户id
         uint32_t _prepare_user_id;
     public:
@@ -130,14 +132,15 @@ class UserManager
                 it->second._status = ONLINE;
                 it->second._addr = cli_addr;
                 it->second._addr_len = addr_len;
-                _online_list.insert(it->second);
+                _online_list.push_back(it->second);
                 pthread_mutex_unlock(&_lock);
+                //这里返回false是表示不需要把这条消息放入消息池里
                 return false;
             }
             pthread_mutex_unlock(&_lock);
             return true; 
         }
-        std::unordered_set<UserInfo>& GetOnlinelist()
+        std::vector<UserInfo>& GetOnlinelist()
         {
             return _online_list;
         }
