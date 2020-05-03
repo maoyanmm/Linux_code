@@ -9,6 +9,7 @@
 #include<arpa/inet.h>
 
 #include"Log.hpp"
+#include"ConnectInfo.hpp"
 
 //该用户信息管理模块是用来将注册了的、登陆了的用户信息进行管理（登陆、注册）
 
@@ -68,6 +69,7 @@ class UserManager
             //如果输入的注册信息为空，则注册失败
             if(nick_name.size() == 0 || school.size() == 0 || password.size() == 0)
             {
+                LOG(ERROR,"Register failed!") << std::endl;
                 return false;
             }
             pthread_mutex_lock(&_lock);
@@ -82,8 +84,9 @@ class UserManager
             ++_prepare_user_id;
             LOG(INFO,"Register a user success") << std::endl;
             pthread_mutex_unlock(&_lock);
+            return true;
         }
-        bool Login(uint32_t user_id,const std::string& password)
+        bool Login(uint32_t user_id,const std::string& password,ReplyInfo* response)
         {
             pthread_mutex_lock(&_lock);
             //查看该id是否存在
@@ -104,6 +107,10 @@ class UserManager
             //密码正确，把用户状态更新
             it->second._status = WILL_BE_ONLINE;
             pthread_mutex_unlock(&_lock);
+            //登陆成功后，用户从服务端得到自己的信息（因为自己的信息肯定是存在服务端的，而不是客户端
+            strcpy(response->_nick_name,it->second._nick_name.c_str());
+            strcpy(response->_school,it->second._school.c_str());
+            response->_user_id = it->second._user_id;
             return true;
         }
         bool IsLogin(const uint32_t& user_id,const struct sockaddr_in& cli_addr,const socklen_t& addr_len)
@@ -130,9 +137,10 @@ class UserManager
             if(it->second._status == WILL_BE_ONLINE)
             {
                 it->second._status = ONLINE;
-                it->second._addr = cli_addr;
+                memcpy(&it->second._addr,&cli_addr,sizeof(cli_addr));
                 it->second._addr_len = addr_len;
                 _online_list.push_back(it->second);
+                LOG(INFO,"user Login success!") << std::endl;
                 pthread_mutex_unlock(&_lock);
                 //这里返回false是表示不需要把这条消息放入消息池里
                 return false;
@@ -140,8 +148,8 @@ class UserManager
             pthread_mutex_unlock(&_lock);
             return true; 
         }
-        std::vector<UserInfo>& GetOnlinelist()
+        void GetOnlinelist(std::vector<UserInfo>* online_list)
         {
-            return _online_list;
+             *online_list = _online_list;
         }
 };

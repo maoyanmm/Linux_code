@@ -8,9 +8,9 @@
 class FormatMessage
 {
     public:
+        uint32_t _user_id;
         std::string _nick_name;
         std::string _school;
-        uint32_t _user_id;
         //需要发送的信息内容
         std::string _msg;
     public:
@@ -20,18 +20,19 @@ class FormatMessage
             Json::Reader reader;
             Json::Value value;
             reader.parse(msg,value,false);
+            
+            _user_id = value["_user_id"].asInt();
             _nick_name = value["_nick_name"].asString();
             _school = value["_school"].asString();
-            _user_id = value["_user_id"].asInt();
             _msg = value["_msg"].asString();
         }
         //序列化：将成员变量序列化成字符串
         void Serialize(std::string* msg)
         {
             Json::Value value;
+            value["_user_id"] = _user_id;
             value["_nick_name"] = _nick_name;
             value["_school"] = _school;
-            value["_user_id"] = _user_id;
             value["_msg"] = _msg;
 
             Json::FastWriter writer;

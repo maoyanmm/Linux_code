@@ -39,7 +39,6 @@ class MsgPool
             pthread_mutex_lock(&_lock);
             while(IsFull())
             {
-                pthread_cond_signal(&_consume_cond);
                 pthread_cond_wait(&_product_cond,&_lock);
             }
             _msg_queue.push(msg);
@@ -51,7 +50,6 @@ class MsgPool
             pthread_mutex_lock(&_lock);
             while(IsEmpty())
             {
-                pthread_cond_signal(&_product_cond);
                 pthread_cond_wait(&_consume_cond,&_lock);
             }
             *msg = _msg_queue.front();

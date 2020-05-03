@@ -7,7 +7,7 @@
 enum RegisterAndLogin : char
 {
     REGISTER = 0,
-    LONGIN
+    LOGIN
 };
 
 //返回给客户的状态信息
@@ -35,6 +35,8 @@ struct LoginInfo
 //服务端返回给客户端的信息
 struct ReplyInfo
 {
-    uint32_t _user_id;
     ReplyStatus _status;
+    uint32_t _user_id;
+    char _nick_name[15];
+    char _school[20];
 };

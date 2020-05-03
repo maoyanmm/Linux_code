@@ -236,24 +236,22 @@ class ChatServer
             }
             //ReplyIngo里要返回给客户的本次执行状态和用户id
             enum ReplyStatus response_status = REQUEST_ERROR;
-            uint32_t response_id = -1;
             //3、通过收到的请求类型来判断是 注册 还是 登陆
+            ReplyInfo response;
             switch(request_type)
             {
                 case REGISTER:
-                    response_status = cs->DealRegister(new_sock,&response_id);
+                    response_status = cs->DealRegister(new_sock,&response);
                     break;
-                case LONGIN:
-                    response_status = cs->DealLogin(new_sock);
+                case LOGIN:
+                    response_status = cs->DealLogin(new_sock,&response);
                     break;
                 default:
                     response_status = REQUEST_ERROR; 
                     break;
             }
-            //4、组织要回给客户的ReplyInfo
-            ReplyInfo response;
+            //4、填入这次客户请求的执行结果的状态
             response._status = response_status;
-            response._user_id = response_id;
             //5、发送给客户端这次的处理情况
             int send_size = send(new_sock,&response,sizeof(response),0);
             if(send_size < 0)
@@ -269,7 +267,7 @@ class ChatServer
         }
     private:
         //处理注册
-        ReplyStatus DealRegister(int new_sock,uint32_t* user_id)
+        ReplyStatus DealRegister(int new_sock,ReplyInfo* response)
         {
             //从newsock的接受窗口接受RegisterInfo大小的注册数据
             RegisterInfo ri;
@@ -285,15 +283,17 @@ class ChatServer
                 return REGISTER_FAILED;
             }
             //将注册信息交给user_manager来处理注册
-            bool ret =_user_manager->Register(ri._nick_name,ri._school,ri._password,user_id);
+            bool ret =_user_manager->Register(ri._nick_name,ri._school,ri._password,&response->_user_id);
             if(ret == false)
             {
                 return REGISTER_FAILED;
             }
+            strcpy(response->_nick_name,ri._nick_name);
+            strcpy(response->_school,ri._school);
             return REGISTER_SUCCESS; 
         }
         //处理登陆
-        ReplyStatus DealLogin(int new_sock)
+        ReplyStatus DealLogin(int new_sock,ReplyInfo* response)
         {
             //在new_sock的接收窗口接受LoginInfo大小的登陆数据
             LoginInfo li;
@@ -309,7 +309,7 @@ class ChatServer
                 return LOGIN_FAILED;
             }
             //把接受到的LoginInfo里的账号和密码交给user_manager校验
-            bool ret = _user_manager->Login(li._user_id,li._password);
+            bool ret = _user_manager->Login(li._user_id,li._password,response);
             if(ret == false)
             {
                 LOG(ERROR,"user_id or password is not correct!") << std::endl;
@@ -350,14 +350,25 @@ class ChatServer
         //发送消息给所有在线用户
         void BroadcastMsg()
         {
-            //1、获取所有在线用户列表
-            std::vector<UserInfo> online_list = _user_manager->GetOnlinelist();
-            //2、从数据池中取数据
+            //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!下面一定要先取数据再取列表
+            //因为如果反过来。服务端刚开启的时候，就来到了这个函数，然后取列表，列表是空的，然后走取数据的逻辑，因为没有数据，所以阻塞在数据池里，等来了数据后，就去发数据，但是发现列表一个在线的都没有，然后出函数，再while又进来，然后取列表，列表现在是有用户了，然后走到取数据的逻辑，但是这时候之前已经接受了一次数据了，现在数据是空的，然后会一直阻塞在这个接受数据的逻辑里
+            //1、从数据池中取数据
             std::string msg;
             _msg_pool->PopMsgFromPool(&msg);
-            //3、一个个发送
+            LOG(INFO,"MSG = ") << msg << std::endl;
+            //2、获取所有在线用户列表
+            std::vector<UserInfo> online_list;
+            _user_manager->GetOnlinelist(&online_list);
+            LOG(INFO,"准备打印在线用户列表") << std::endl;
             for(const auto& user:online_list)
             {
+                std::cout << user._user_id << std::endl;
+            }
+            //3、一个个发送
+            LOG(INFO,"online_list.size() = ") << online_list.size() << std::endl;
+            for(const auto& user:online_list)
+            {
+                std::cout << "-----------------------------------------------------" << std::endl;
                 SendMsg(msg,user._addr,user._addr_len);
             }
         }
@@ -373,4 +384,3 @@ class ChatServer
             LOG(INFO,"SendMsg success!!!") << msg << std::endl;
         }
 };
-
