@@ -1,5 +1,5 @@
 CFLAGS=-std=c++11 -g
-LDFLAGS=-lpthread -ljsoncpp
+LDFLAGS=-lpthread -ljsoncpp -lncurses
 
 SVRBIN=../bin/svr_out
 CLIBIN=../bin/cli_out

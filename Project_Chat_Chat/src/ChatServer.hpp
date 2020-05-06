@@ -344,7 +344,6 @@ class ChatServer
             if(ret == true)
             {
                 _msg_pool->PushMsgToPool(recv_msg);
-                LOG(INFO,"PushMsgToPool success!!! ") << fmsg._msg  <<std::endl;
             }
         }
         //发送消息给所有在线用户
@@ -355,20 +354,12 @@ class ChatServer
             //1、从数据池中取数据
             std::string msg;
             _msg_pool->PopMsgFromPool(&msg);
-            LOG(INFO,"MSG = ") << msg << std::endl;
             //2、获取所有在线用户列表
             std::vector<UserInfo> online_list;
             _user_manager->GetOnlinelist(&online_list);
-            LOG(INFO,"准备打印在线用户列表") << std::endl;
-            for(const auto& user:online_list)
-            {
-                std::cout << user._user_id << std::endl;
-            }
             //3、一个个发送
-            LOG(INFO,"online_list.size() = ") << online_list.size() << std::endl;
             for(const auto& user:online_list)
             {
-                std::cout << "-----------------------------------------------------" << std::endl;
                 SendMsg(msg,user._addr,user._addr_len);
             }
         }
@@ -381,6 +372,5 @@ class ChatServer
                 LOG(ERROR,"SendMsg failed!") << std::endl;
                 return;
             }
-            LOG(INFO,"SendMsg success!!!") << msg << std::endl;
         }
 };

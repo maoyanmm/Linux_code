@@ -2,6 +2,7 @@
 #include<iostream>
 #include<unistd.h>
 #include<arpa/inet.h>
+#include<unordered_set>
 
 #include"Log.hpp"
 #include"FormatMessage.hpp"
@@ -35,7 +36,7 @@ class ChatClient
         //客户端用来发消息的udp_sock
         int _cli_udp_sock;
         //在线用户列表
-        std::vector<std::string> _online_list;
+        std::unordered_set<std::string> _online_list;
         //当前登陆的用户信息
         MyOnlineInfo _me;
     public:
@@ -193,6 +194,7 @@ class ChatClient
             {
                 fmsg._msg = msg;
             }
+            fmsg._msg = msg;
             fmsg._nick_name = _me._nick_name;
             fmsg._school = _me._school;
             fmsg._user_id = _me._user_id;
@@ -220,7 +222,7 @@ class ChatClient
             char buf[MAX_MESSAGE_SIZE] = {'\0'};
             memset(buf,'\0',MAX_MESSAGE_SIZE);
             struct sockaddr_in svr_addr;
-            socklen_t addr_len;
+            socklen_t addr_len = sizeof(svr_addr);
             int recv_size = recvfrom(_cli_udp_sock,buf,sizeof(buf)-1,0,(struct sockaddr*)&svr_addr,&addr_len);
             if(recv_size < 0)
             {
@@ -230,6 +232,19 @@ class ChatClient
             msg->assign(buf,recv_size);
             return true;
         }
+        void PushOnlineUser(const std::string& user_info)
+        {
+            auto it = _online_list.find(user_info);
+            if(it == _online_list.end())
+            {
+                _online_list.insert(user_info);
+            }
+        }
+        std::unordered_set<std::string>& GetOnlineUser()
+        {
+            return _online_list;
+        }
+
     private:
         void InitUdp()
         {
