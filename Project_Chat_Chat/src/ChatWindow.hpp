@@ -152,7 +152,7 @@ class ChatWindow
                 std::string show_msg = fmsg._nick_name + " : " + fmsg._msg;
                 cw->PutStringToWindow(cw->_output,row,1,show_msg);
                 //3、把这条消息的用户信息存起来
-                std::string user_info = fmsg._school + " - " + fmsg._nick_name;
+                std::string user_info = fmsg._birthday + " - " + fmsg._nick_name;
                 cc->PushOnlineUser(user_info);
                 ++row;
                 if(row > y - 2)

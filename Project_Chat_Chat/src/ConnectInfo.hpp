@@ -23,7 +23,7 @@ enum ReplyStatus : char
 struct RegisterInfo
 {
     char _nick_name[15];
-    char _school[20];
+    char _birthday[20];
     char _password[15];
 };
 //客户发送来的登录信息
@@ -38,5 +38,5 @@ struct ReplyInfo
     ReplyStatus _status;
     uint32_t _user_id;
     char _nick_name[15];
-    char _school[20];
+    char _birthday[20];
 };

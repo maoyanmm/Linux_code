@@ -283,13 +283,13 @@ class ChatServer
                 return REGISTER_FAILED;
             }
             //将注册信息交给user_manager来处理注册
-            bool ret =_user_manager->Register(ri._nick_name,ri._school,ri._password,&response->_user_id);
+            bool ret =_user_manager->Register(ri._nick_name,ri._birthday,ri._password,&response->_user_id);
             if(ret == false)
             {
                 return REGISTER_FAILED;
             }
             strcpy(response->_nick_name,ri._nick_name);
-            strcpy(response->_school,ri._school);
+            strcpy(response->_birthday,ri._birthday);
             return REGISTER_SUCCESS; 
         }
         //处理登陆

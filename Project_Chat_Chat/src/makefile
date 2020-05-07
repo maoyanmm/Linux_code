@@ -1,5 +1,5 @@
 CFLAGS=-std=c++11 -g
-LDFLAGS=-lpthread -ljsoncpp -lncurses
+LDFLAGS=-lpthread -ljsoncpp -lncurses -L/usr/lib64/mysql -lmysqlclient
 
 SVRBIN=../bin/svr_out
 CLIBIN=../bin/cli_out

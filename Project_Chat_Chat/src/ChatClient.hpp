@@ -17,7 +17,7 @@ class MyOnlineInfo
 {
     public:
         std::string _nick_name; 
-        std::string _school;
+        std::string _birthday;
         uint32_t _user_id;
 };
 
@@ -75,8 +75,8 @@ class ChatClient
             RegisterInfo register_info; 
             std::cout << "Please enter your nick_name: " << std::endl;
             std::cin >> register_info._nick_name;
-            std::cout << "Please enter your school: " << std::endl;
-            std::cin >> register_info._school;
+            std::cout << "Please enter your birthday: " << std::endl;
+            std::cin >> register_info._birthday;
             while(1)
             {
                 char password1[15] = {0}; 
@@ -171,7 +171,7 @@ class ChatClient
             }
             //5、登陆成功后把当前登陆的用户信息存起来
             _me._nick_name = response._nick_name;
-            _me._school = response._school;
+            _me._birthday = response._birthday;
             _me._user_id = response._user_id;
             //6、发送udp数据：为了让服务端知道自己的UDP端口(因为聊天用的是UDP)
             //这一步做完才算是真正的登陆了,这一步只需要发送一个序列化消息即可，msg可以是空
@@ -196,7 +196,7 @@ class ChatClient
             }
             fmsg._msg = msg;
             fmsg._nick_name = _me._nick_name;
-            fmsg._school = _me._school;
+            fmsg._birthday = _me._birthday;
             fmsg._user_id = _me._user_id;
             std::string send_msg;
             fmsg.Serialize(&send_msg);
