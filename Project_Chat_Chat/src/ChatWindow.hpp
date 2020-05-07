@@ -10,11 +10,13 @@
 #include"Log.hpp"
 
 class ChatWindow;
+//这个类是为了打包数据，因为线程入口函数只能传一个值
 class Helper
 {
     public:
         ChatWindow* _cw;
         ChatClient* _cc;
+        //为了区别跑哪一个窗口函数
         int _thread_num;
     public:
         Helper(ChatWindow* cw,ChatClient* cc,int thread_num)
@@ -67,7 +69,9 @@ class ChatWindow
             pthread_t tid;
             for(int i = 0; i < 4; ++i)
             {
+                //每次传入this，客户端，第几个线程标识
                 Helper* hp = new Helper(this,_cc,i);
+                //全部先进入一个入口函数，然后在入口函数里再去分支
                 int ret = pthread_create(&tid,NULL,DrawWindowStart,(void*)hp);
                 if(ret < 0)
                 {
@@ -88,6 +92,7 @@ class ChatWindow
            int thread_num = hp->_thread_num;
            ChatClient* cc = hp->_cc;
            ChatWindow* cw = hp->_cw;
+           //根据传来的数字不同，跑不同的窗口函数
            switch(thread_num)
            {
                case 0:
@@ -110,12 +115,15 @@ class ChatWindow
             std::string tips = "Chat Chat ~ ~";
             int y,x;
             size_t pos = 1;
+            //标志了字体移动的方向
+            //目的是让标识字符移动起来
             char direction = 'r';
             while(1)
             {
                 getmaxyx(cw->_head,y,x);
                 cw->DrawHead();
                 cw->PutStringToWindow(cw->_head,y/2,pos,tips);
+                //如果碰到了两边的边边，就换方向动
                 if(pos > x-tips.size()-2)
                 {
                     direction = 'l';
@@ -158,6 +166,7 @@ class ChatWindow
                 if(row > y - 2)
                 {
                     row = 1;
+                    //只有消息满了才刷新消息窗口
                     cw->DrawOutput();
                 }
             }
@@ -170,6 +179,7 @@ class ChatWindow
             {
                 cw->DrawInput();
                 cw->PutStringToWindow(cw->_input,1,1,tips);
+                //通过取出窗口输入的消息，发送给服务端
                 cw->GetStringFromWindow(cw->_input,&send_msg);
                 cc->SendMsg(send_msg);
             }
@@ -182,6 +192,7 @@ class ChatWindow
                 cw->DrawUserList();
                 auto user_list = cc->GetOnlineUser();
                 int row = 1;
+                //把客户端存的在线用户列表一个个打印出来
                 for(const auto& user_info:user_list)
                 {
                     cw->PutStringToWindow(cw->_user_list,row++,1,user_info);
